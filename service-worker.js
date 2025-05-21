@@ -1,16 +1,16 @@
 const CACHE_NAME = 'signature-app-v7'; // Increment cache version if you make changes
 const urlsToCache = [
-  '/', // Caches the root (which often redirects to index.html)
+  '/',
   '/index.html',
   '/manifest.json',
-  '/icon-192x192.png', // Ensure these match your actual icon filenames
-  '/icon-512x512.png', // Ensure these match your actual icon filenames
-  'https://cdn.tailwindcss.com',
+  '/icon-192x192.png',
+  '/icon-512x512.png',
   'https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap',
   'https://cdn.jsdelivr.net/npm/signature_pad@4.1.5/dist/signature_pad.umd.min.js',
   'https://unpkg.com/react@18/umd/react.production.min.js',
-  'https://unpkg.com/react-dom@18/umd/react-dom.production.min.js',
-  'https://unpkg.com/@babel/standalone/babel.min.js'
+  'https://unpkg.com/react-dom@18/umd/react-dom.production.min.js'
+  // REMOVED: 'https://cdn.tailwindcss.com'
+  // REMOVED: 'https://unpkg.com/@babel/standalone/babel.min.js'
 ];
 
 // Install event: caches all necessary assets
