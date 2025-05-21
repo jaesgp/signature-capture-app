@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Signature Capture App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.5/dist/signature_pad.umd.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <link rel="manifest" href="/manifest.json">
+</head>
+<body class="font-roboto bg-[#f0f4c3] flex justify-center items-center min-h-screen p-4 box-border">
+
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useCallback } = React;
+
+        // Main App Component
+        function App() {
+            const [rwoNumber, setRwoNumber] = useState('');
+            const [expectedOnSite, setExpectedOnSite] = useState('');
+            const [amountOnSite, setAmountOnSite] = useState('');
+            const [difference, setDifference] = useState('');
+            const [customerName, setCustomerName] = useState('');
+            const [currentDateTime, setCurrentDateTime] = useState('');
+
+            const signaturePadRef = useRef(null);
+            const signatureCanvasRef = useRef(null);
+
+            // Effect to initialize SignaturePad
+            useEffect(() => {
+                if (signatureCanvasRef.current) {
+                    signaturePadRef.current = new SignaturePad(signatureCanvasRef.current, {
+                        backgroundColor: 'rgba(255, 255, 255, 1)', // White background for signature pad
+                        penColor: 'rgb(0, 0, 0)' // Black pen color
+                    });
+                }
+            }, []);
+
+            // Effect to update date and time display
+            useEffect(() => {
+                const updateDateTime = () => {
+                    const now = new Date();
+                    const formattedDate = `${now.getDate().toString().padStart(2, '0')}/${(now.getMonth() + 1).toString().padStart(2, '0')}/${now.getFullYear()}`;
+                    const formattedTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+                    setCurrentDateTime(`Date/Time: ${formattedDate} ${formattedTime}`);
+                };
+                updateDateTime();
+                const intervalId = setInterval(updateDateTime, 1000);
+                return () => clearInterval(intervalId);
+            }, []);
+
+            // Callback to update difference based on expected and amount
+            const updateDifference = useCallback(() => {
+                const expected = parseInt(expectedOnSite) || 0;
+                const amount = parseInt(amountOnSite) || 0;
+                const diff = expected - amount;
+                let diffText = Math.abs(diff).toString(); // Always show absolute value
+
+                if (diff > 0) {
+                    diffText += " Rolls missing";
+                } else if (diff < 0) {
+                    diffText += " Rolls up on site";
+                } else {
+                    diffText += " Rolls"; // For zero difference
+                }
+                setDifference(diffText);
+            }, [expectedOnSite, amountOnSite]);
+
+            useEffect(() => {
+                updateDifference();
+            }, [expectedOnSite, amountOnSite, updateDifference]);
+
+            // Function to clear the signature pad
+            const handleClearSignature = () => {
+                if (signaturePadRef.current) {
+                    signaturePadRef.current.clear();
+                }
+            };
+
+            // Function to clear all inputs and signature
+            const handleClearAll = () => {
+                setRwoNumber('');
+                setExpectedOnSite('');
+                setAmountOnSite('');
+                setCustomerName('');
+                setDifference('0 Rolls'); // Reset difference display
+                handleClearSignature();
+            };
+
+            // Function to handle download
+            const handleDownload = () => {
+                if (signaturePadRef.current.isEmpty() || !rwoNumber || !expectedOnSite || !amountOnSite || !customerName) {
+                    alert('Please fill in all the fields and provide a signature.');
+                    return;
+                }
+                if (rwoNumber.length !== 6) {
+                    alert('RWO Number must be 6 digits.');
+                    return;
+                }
+
+                const signatureDataURL = signaturePadRef.current.toDataURL('image/png');
+
+                // Create a temporary canvas for combining information
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                const img = new Image();
+
+                img.onload = () => {
+                    const now = new Date();
+                    const formattedDate = `${now.getDate().toString().padStart(2, '0')}/${(now.getMonth() + 1).toString().padStart(2, '0')}/${now.getFullYear()}`;
+                    const formattedTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+
+                    // Set canvas dimensions
+                    canvas.width = Math.max(img.width + 40, 600); // Add padding, ensure min width
+                    canvas.height = img.height + 200; // Height for text + signature + padding
+
+                    // Draw white background
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                    // Draw title
+                    ctx.font = '700 24px Roboto'; // Bold for title
+                    ctx.fillStyle = '#ffcc00';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('Stock Discrepancy', canvas.width / 2, 30);
+
+                    // Draw details
+                    ctx.font = '400 16px Roboto'; // Regular weight for details
+                    ctx.fillStyle = 'black';
+                    ctx.textAlign = 'left'; // Align text left for details
+
+                    let textY = 60;
+                    const textX = 20; // Left padding for text
+
+                    ctx.fillText(`RWO: ${rwoNumber}`, textX, textY);
+                    textY += 20;
+                    ctx.fillText(`Expected on Site: ${expectedOnSite} Rolls`, textX, textY);
+                    textY += 20;
+                    ctx.fillText(`Amount on Site: ${amountOnSite} Rolls`, textX, textY);
+                    textY += 20;
+                    ctx.fillText(`Difference: ${difference}`, textX, textY);
+                    textY += 20;
+                    ctx.fillText(`Full Customer Name: ${customerName}`, textX, textY);
+
+                    // Draw signature
+                    const signatureY = textY + 20; // Position signature below text
+                    ctx.drawImage(img, (canvas.width - img.width) / 2, signatureY);
+
+                    // Draw Date/Time at the bottom
+                    ctx.font = '400 14px Roboto';
+                    ctx.fillStyle = 'black';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(`Date/Time: ${formattedDate} ${formattedTime}`, canvas.width / 2, canvas.height - 20);
+
+                    // Trigger download
+                    const combinedDataURL = canvas.toDataURL('image/png');
+                    const a = document.createElement('a');
+                    a.href = combinedDataURL;
+                    a.download = `stock_discrepancy_RWO_${rwoNumber}.png`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                };
+                img.src = signatureDataURL;
+            };
+
+            return (
+                <div className="container bg-[#003366] p-8 rounded-xl shadow-lg w-11/12 max-w-xl text-center">
+                    <h1 className="text-[#ffcc00] mb-5 text-2xl font-bold">Stock Discrepancy</h1>
+
+                    <div className="form-group mb-4 text-left">
+                        <label htmlFor="rwoNumber" className="block mb-1 text-white text-sm font-medium">RWO:</label>
+                        <div className="flex items-center">
+                            <input
+                                type="number"
+                                id="rwoNumber"
+                                placeholder="Enter 6-digit Number"
+                                maxLength="6"
+                                value={rwoNumber}
+                                onChange={(e) => setRwoNumber(e.target.value.slice(0, 6))}
+                                className="w-full p-2 border border-gray-300 rounded-md box-border text-base transition-colors focus:border-[#ffcc00] outline-none bg-white text-gray-800"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="form-group mb-4 text-left">
+                        <label htmlFor="expectedOnSite" className="block mb-1 text-white text-sm font-medium">Expected on Site:</label>
+                        <div className="flex items-center">
+                            <input
+                                type="number"
+                                id="expectedOnSite"
+                                placeholder="Enter Amount"
+                                value={expectedOnSite}
+                                onChange={(e) => setExpectedOnSite(e.target.value)}
+                                className="flex-1 p-2 border border-gray-300 rounded-l-md box-border text-base transition-colors focus:border-[#ffcc00] outline-none bg-white text-gray-800"
+                            />
+                            <span className="bg-gray-200 border border-gray-300 p-2 rounded-r-md text-base text-gray-600">Rolls</span>
+                        </div>
+                    </div>
+
+                    <div className="form-group mb-4 text-left">
+                        <label htmlFor="amountOnSite" className="block mb-1 text-white text-sm font-medium">Amount on Site:</label>
+                        <div className="flex items-center">
+                            <input
+                                type="number"
+                                id="amountOnSite"
+                                placeholder="Enter Amount"
+                                value={amountOnSite}
+                                onChange={(e) => setAmountOnSite(e.target.value)}
+                                className="flex-1 p-2 border border-gray-300 rounded-l-md box-border text-base transition-colors focus:border-[#ffcc00] outline-none bg-white text-gray-800"
+                            />
+                            <span className="bg-gray-200 border border-gray-300 p-2 rounded-r-md text-base text-gray-600">Rolls</span>
+                        </div>
+                    </div>
+
+                    <div className="form-group mb-4 text-left">
+                        <label htmlFor="difference" className="block mb-1 text-white text-sm font-medium">Difference:</label>
+                        <input
+                            type="text"
+                            id="difference"
+                            value={difference}
+                            readOnly
+                            className="w-full p-2 border border-gray-300 rounded-md box-border text-base bg-white text-gray-800"
+                        />
+                    </div>
+
+                    <div className="form-group mb-4 text-left">
+                        <label htmlFor="customerName" className="block mb-1 text-white text-sm font-medium">Full Customer Name:</label>
+                        <input
+                            type="text"
+                            id="customerName"
+                            placeholder="Enter Customer Name"
+                            value={customerName}
+                            onChange={(e) => setCustomerName(e.target.value)}
+                            className="w-full p-2 border border-gray-300 rounded-md box-border text-base transition-colors focus:border-[#ffcc00] outline-none bg-white text-gray-800"
+                        />
+                    </div>
+
+                    <div className="form-group mb-4 text-left">
+                        <label className="block mb-1 text-white text-sm font-medium">Output (Signature):</label>
+                        <div className="relative w-full h-48 border-2 border-gray-300 rounded-md mb-5 bg-white">
+                            <canvas ref={signatureCanvasRef} className="absolute inset-0 w-full h-full"></canvas>
+                        </div>
+                    </div>
+
+                    <div id="date-time" className="text-white text-base mb-4">{currentDateTime}</div>
+
+                    <div className="flex flex-wrap justify-center gap-4 mt-2">
+                        <button
+                            onClick={handleClearSignature}
+                            className="py-3 px-6 bg-[#f39c12] text-white rounded-md cursor-pointer text-base transition-colors hover:bg-[#e67e22] min-w-[150px]"
+                        >
+                            Clear Signature
+                        </button>
+                        <button
+                            onClick={handleDownload}
+                            className="py-3 px-6 bg-[#ffcc00] text-[#003366] rounded-md cursor-pointer text-base transition-colors hover:bg-[#e0b100] min-w-[150px]"
+                        >
+                            Download
+                        </button>
+                        <button
+                            onClick={handleClearAll}
+                            className="py-3 px-6 bg-[#8e44ad] text-white rounded-md cursor-pointer text-base transition-colors hover:bg-[#7a2d91] min-w-[150px]"
+                        >
+                            Clear All
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+
+        // Render the App component
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/service-worker.js')
+            .then(registration => {
+              console.log('ServiceWorker registration successful with scope: ', registration.scope);
+            })
+            .catch(err => {
+              console.log('ServiceWorker registration failed: ', err);
+            });
+        });
+      }
+    </script>
+</body>
+</html>
