@@ -1,4 +1,4 @@
-const CACHE_NAME = 'signature-app-v6'; // Increment cache version if you make changes
+const CACHE_NAME = 'signature-app-v7'; // Increment cache version if you make changes
 const urlsToCache = [
   '/', // Caches the root (which often redirects to index.html)
   '/index.html',
